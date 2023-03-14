@@ -7,3 +7,5 @@
 *.pyc
 *.bak
 *.aria2
+*.cfg
+/mount_blobs.sh
