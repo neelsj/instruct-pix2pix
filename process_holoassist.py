@@ -8,6 +8,11 @@ import csv
 
 from tqdm import tqdm
 
+def toString(text):
+    if type(text) is list:
+        text = ' '.join([str(elem) for elem in text])
+    return text
+
 if __name__ == "__main__":
 
     playClip = False
@@ -54,7 +59,7 @@ if __name__ == "__main__":
 
                 if (attr["Action Correctness"] == "Correct Action"):
                     #print(event)
-
+                    
                     if (useTimes):
                         startTime = event["startTime"]
                         endTime = event["endTime"]
@@ -66,11 +71,14 @@ if __name__ == "__main__":
                         endFrame = event["endTimeOriginalFPS"]                    
 
                     if ("Adjective" in attr):
-                        prompt = attr["Verb"] + " " + attr["Adjective"] + " " + attr["Noun"]
+                        prompt = toString(attr["Verb"]) + " " + toString(attr["Adjective"]) + " " + toString(attr["Noun"])
                     else:
-                        prompt = attr["Verb"] + " " + attr["Noun"]
+                        prompt = toString(attr["Verb"]) + " " + toString(attr["Noun"])
 
                     prompt = prompt.lower().replace("_", " ")
+
+                    #print(attr)
+                    #print(prompt)
 
                     if (playClip):
 
