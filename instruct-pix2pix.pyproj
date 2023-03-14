@@ -12,7 +12,7 @@
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>CondaEnv|CondaEnv|ip2p</InterpreterId>
-    <CommandLineArguments>--pretrained_model_name_or_path="timbrooks/instruct-pix2pix" --dataset_name="lambdalabs/pokemon-blip-captions" --dataloader_num_workers=0 --resolution=512 --center_crop --random_flip --train_batch_size=1 --gradient_accumulation_steps=4 --max_train_steps=15000 --learning_rate=1e-04 --max_grad_norm=1 --lr_scheduler="cosine" --lr_warmup_steps=0 --output_dir="checkpoints/instruct-pix2pix" --checkpointing_steps=500 --validation_prompt="Totoro" --seed=1337</CommandLineArguments>
+    <CommandLineArguments>--pretrained_model_name_or_path="timbrooks/instruct-pix2pix" --train_data_dir="E:/Research/HoloAssist/holoassist_instruct-pix2pix" --dataloader_num_workers=0 --resolution=512 --center_crop --random_flip --train_batch_size=1 --gradient_accumulation_steps=4 --max_train_steps=15000 --learning_rate=1e-04 --max_grad_norm=1 --lr_scheduler="cosine" --lr_warmup_steps=0 --output_dir="checkpoints/instruct-pix2pix" --checkpointing_steps=500 --validation_prompt="Totoro" --seed=1337</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
@@ -32,6 +32,7 @@
     <Compile Include="main.py" />
     <Compile Include="metrics\clip_similarity.py" />
     <Compile Include="metrics\compute_metrics.py" />
+    <Compile Include="process_holoassist.py" />
     <Compile Include="prompt_app.py" />
     <Compile Include="src\clip\clip\clip.py" />
     <Compile Include="src\clip\clip\model.py" />

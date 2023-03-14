@@ -46,6 +46,7 @@ from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
 
+from PIL import Image
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.14.0.dev0")
@@ -125,6 +126,9 @@ def parse_args():
     )
     parser.add_argument(
         "--image_column", type=str, default="image", help="The column of the dataset containing an image."
+    )
+    parser.add_argument(
+        "--image_target_column", type=str, default="image_target", help="The column of the dataset containing an image."
     )
     parser.add_argument(
         "--caption_column",
@@ -544,11 +548,9 @@ def main():
         data_files = {}
         if args.train_data_dir is not None:
             data_files["train"] = os.path.join(args.train_data_dir, "**")
-        dataset = load_dataset(
-            "imagefolder",
-            data_files=data_files,
-            cache_dir=args.cache_dir,
-        )
+
+        dataset = load_dataset('csv', data_files=os.path.join(args.train_data_dir, "metadata.csv"))
+
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
 
@@ -565,6 +567,14 @@ def main():
         if image_column not in column_names:
             raise ValueError(
                 f"--image_column' value '{args.image_column}' needs to be one of: {', '.join(column_names)}"
+            )
+    if args.image_target_column is None:
+        image_target_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
+    else:
+        image_target_column = args.image_target_column
+        if image_target_column not in column_names:
+            raise ValueError(
+                f"--image_target_column' value '{args.image_target_column}' needs to be one of: {', '.join(column_names)}"
             )
     if args.caption_column is None:
         caption_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
@@ -606,8 +616,10 @@ def main():
     )
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [Image.open(os.path.join(args.train_data_dir, file)).convert("RGB") for file in examples[image_column]]
+        image_targets = [Image.open(os.path.join(args.train_data_dir, file)).convert("RGB") for file in examples[image_target_column]]
         examples["pixel_values"] = [train_transforms(image) for image in images]
+        examples["target_pixel_values"] = [train_transforms(image) for image in image_targets]
         examples["input_ids"] = tokenize_captions(examples)
         return examples
 
@@ -620,8 +632,10 @@ def main():
     def collate_fn(examples):
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+        target_pixel_values = torch.stack([example["target_pixel_values"] for example in examples])
+        target_pixel_values = target_pixel_values.to(memory_format=torch.contiguous_format).float()
         input_ids = torch.stack([example["input_ids"] for example in examples])
-        return {"pixel_values": pixel_values, "input_ids": input_ids}
+        return {"pixel_values": pixel_values, "target_pixel_values":  target_pixel_values, "input_ids": input_ids}
 
     # DataLoaders creation:
     train_dataloader = torch.utils.data.DataLoader(
@@ -718,7 +732,7 @@ def main():
             with accelerator.accumulate(unet):
                 # Convert images to latent space
 
-                image_latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.mode()
+                image_latents = vae.encode(batch["target_pixel_values"].to(dtype=weight_dtype)).latent_dist.mode()
 
                 latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
                 latents = latents * vae.config.scaling_factor
