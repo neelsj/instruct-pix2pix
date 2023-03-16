@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{da3f5668-920c-42e9-aff2-679c6dfa2897}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>train_instruct-pix2pix_lora.py</StartupFile>
+    <StartupFile>process_holoassist.py</StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
