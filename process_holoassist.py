@@ -14,14 +14,14 @@ def toString(text):
         text = ' '.join([str(elem) for elem in text])
     return text
 
-def process_batch(ann):
+def process_video(vid_name_frames):
 
-    vid_name = ann["video_name"]       
-    print(vid_name)
+    #print(vid_name)
 
-    #if (vid_name != "z176-sep-05-22-knarrevik_assemble"):
-    #    continue
-        
+    vid_name, frames = vid_name_frames
+    
+    frames = sorted(frames)
+
     vid_path = os.path.join(input_data_path, vid_name, "Export_py/Video.mp4")
 
     video_opened = False
@@ -43,16 +43,36 @@ def process_batch(ann):
             #print("Opened video file %s" % vid_path)  
             break
 
-    fps = video.get(cv2.CAP_PROP_FPS)
+    for time, frame in frames:
+                    
+        if (useTimes):
+            video.set(cv2.CAP_PROP_POS_MSEC, time*1000)
+            ret1, img = video.read()
+        else:
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame)
+            ret1, img = video.read()
 
-    #print("fps %f" % (fps))
+        if (not ret1):
+            continue
+
+        file = vid_name + "_%06d.jpg" % frame
+        path = os.path.join(output_dir, file)
+        cv2.imwrite(path, img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+
+def process_batch(ann):
+
+    vid_name = ann["video_name"]       
+    #print(vid_name)
+
+    #if (vid_name != "z176-sep-05-22-knarrevik_assemble"):
+    #    continue
+    fps = ann["videoMetadata"]["video"]["fps"]
 
     events = ann["events"]
 
     data = []
 
     for event in events:
-        #if (event["label"] == "Fine grained action" and event["id"] == "6c0041fe-a07d-4b16-82a5-65ef288ae2b0"):
         if (event["label"] == "Fine grained action"):
             attr = event["attributes"]
 
@@ -67,7 +87,10 @@ def process_batch(ann):
                     endFrame = int(np.round(endTime*fps))
                 else:
                     startFrame = event["startTimeOriginalFPS"]
-                    endFrame = event["endTimeOriginalFPS"]                    
+                    endFrame = event["endTimeOriginalFPS"]     
+                    
+                    startTime = startFrame/fps
+                    endTime = endFrame/fps
 
                 if ("Adjective" in attr):
                     prompt = toString(attr["Verb"]) + " " + toString(attr["Adjective"]) + " " + toString(attr["Noun"])
@@ -76,99 +99,14 @@ def process_batch(ann):
 
                 prompt = prompt.lower().replace("_", " ")
 
-                #print(attr)
-                #print(prompt)
+                start_file = vid_name + "_%06d.jpg" % startFrame
+                end_file = vid_name + "_%06d.jpg" % endFrame
 
-                if (playClip):
+                row = [start_file, end_file, prompt, vid_name, startTime, endTime, startFrame, endFrame]
 
-                    if (useTimes):
-                        video.set(cv2.CAP_PROP_POS_MSEC, startTime*1000)
-                        curr = startTime
-                        end = endTime
+                data.append(row)   
 
-                        print("%f\t%f\t%s" % (curr*fps, end*fps, prompt))
-                    else:
-                        video.set(cv2.CAP_PROP_POS_FRAMES, startFrame)
-                        curr = startFrame
-                        end = endFrame
-
-                        print("%f\t%f\t%s" % (curr, end, prompt))
-
-                    while (curr < end):
-                        #path = os.path.join(vid_name, "Export_py/Video/%06d.png" % f)
-
-                        #img = cv2.imread(os.path.join(input_data_path, path))
-                        ret, img = video.read()
-                            
-                        if (useTimes):
-                            curr = video.get(cv2.CAP_PROP_POS_MSEC)/1000
-                        else:
-                            curr = video.get(cv2.CAP_PROP_POS_FRAMES)
-
-                        #print("%d" % curr)
-
-                        img = cv2.putText(img, prompt, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-                        cv2.imshow("Image", img)      
-                        cv2.waitKey(100)      
-
-                # get before and after
-                else:
-
-                    if (useTimes):
-                        #shift back a second earlier
-                        if (startFrameOneSecShift):
-                            startTime = startTime-1
-                            startFrame = int(np.round(startTime*fps))
-
-                        video.set(cv2.CAP_PROP_POS_MSEC, startTime*1000)
-                        ret1, img1 = video.read()
-
-                        video.set(cv2.CAP_PROP_POS_MSEC, endTime*1000)
-                        ret2, img2 = video.read() 
-                    else:
-                        #shift back a second earlier
-                        if (startFrameOneSecShift):
-                            startFrame = int(np.round(startFrame-fps))
-
-                        video.set(cv2.CAP_PROP_POS_FRAMES, startFrame)
-                        ret1, img1 = video.read()
-
-                        video.set(cv2.CAP_PROP_POS_FRAMES, endFrame)
-                        ret2, img2 = video.read()     
-
-                    ## concatenate image Horizontally
-                    #img_pair = np.concatenate((img1, img2), axis=1)                        
-                    #img_pair = cv2.putText(img_pair, prompt, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-                    if (not ret1 or not ret2):
-                        continue
-
-                    if (saveData):
-                        start_file = vid_name + "_%06d.jpg" % startFrame
-                        end_file = vid_name + "_%06d.jpg" % endFrame
-
-                        pair_file = vid_name + "_pair_%06d-%06d_%s.jpg" % (startFrame, endFrame, prompt)
-
-                        start_path = os.path.join(output_dir, start_file)
-                        end_path = os.path.join(output_dir, end_file)
-                        
-                        #print("%s\t%s\t%s" % (start_path, end_path, prompt))
-
-                        cv2.imwrite(start_path, img1, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                        cv2.imwrite(end_path, img2, [cv2.IMWRITE_JPEG_QUALITY, 80])
-
-                        #pair_path = os.path.join(output_dir_pairs, pair_file)
-                        #cv2.imwrite(pair_path, img_pair, [cv2.IMWRITE_JPEG_QUALITY, 80])
-
-                        row = [start_file, end_file, prompt]
-
-                        data.append(row)
-    
-                    if (showImages):
-                        cv2.imshow("Image", img_pair)      
-                        cv2.setWindowTitle("Image", prompt)
-                        cv2.waitKey(3000)      
+    data =sorted(data)
 
     return data
 
@@ -178,65 +116,72 @@ from multiprocessing import Pool
 import time
 from tqdm import *
 
+from sys import platform
+
 if __name__ == "__main__":
 
-    playClip = False
     useTimes = True
-    startFrameOneSecShift = False
-    saveData = True
-    showImages = False
     multiprocess = True
 
-    input_dir = "/mnt/e/Research/HoloAssist"
+    #playClip = False
+    #startFrameOneSecShift = False
+    #saveData = True
+    #showImages = False
+
+    if platform == "win32":
+        input_dir = "E:/Research/HoloAssist"
+        output_dir = "E:/Research/HoloAssist/holoassist_instruct-pix2pix/images"
+    else:
+        input_dir = "/mnt/e/Research/HoloAssist"
+        output_dir = "/mnt/e/Research/HoloAssist/holoassist_instruct-pix2pix/images"
+
     input_data_path = "/mnt/hl2data"
 
-    output_dir = "/mnt/e/Research/HoloAssist/holoassist_instruct-pix2pix/images"
     output_dir_pairs = "/mnt/e/Research/HoloAssist/holoassist_instruct-pix2pix/pairs"
 
     with open(os.path.join(input_dir, "labels_20230225_2221_fixed_typos.json"), "r") as f:
       labels = json.load(f)
 
-    start = 0
-
     print("num batches %d" % len(labels))
+
+    data = []
+
+    for ann in tqdm(labels):
+        try:
+            data += process_batch(ann)
+        except Exception as e:
+            print(e)
+            pass
+
+    #print(len(data))
+    #print(len(labels))
+
+    with open(os.path.join(output_dir, 'metadata.csv'), 'w', newline='\n') as csvfile:
+        writer = csv.writer(csvfile, delimiter=',')
+
+        headers = ["image","image_target","text"]
+        writer.writerow(headers)
+
+        for row in data:
+            writer.writerow(row[0:3])
+
+    video_frames = {}
+
+    for _, _, _, vid_name, startTime, endTime, startFrame, endFrame in data:
+
+        if (vid_name not in video_frames):
+            video_frames[vid_name] = set()
+
+        video_frames[vid_name].add((startTime, startFrame))
+        video_frames[vid_name].add((endTime, endFrame))
+
+    #print(len(video_frames))
 
     if (multiprocess):
         n_procs = 2
 
-        #data = process_map(process_batch, labels, chunksize=1, max_workers=n_procs)
-
-        data = []
-
-        with Pool(processes=n_procs) as p:
-                for i, results in tqdm(enumerate(p.imap(process_batch, labels), start), initial=start, total=len(labels)):
-                    
-                    data += results
-
-                    with open(os.path.join(output_dir, 'metadata_%06d.csv' % i), 'w', newline='\n') as csvfile:
-                        writer = csv.writer(csvfile, delimiter=',')
-
-                        headers = ["image","image_target","text"]
-                        writer.writerow(headers)
-                        writer.writerows(data)
-
-        #tqdm.set_lock(TRLock())
-        #with ThreadPoolExecutor(initializer=tqdm.set_lock, initargs=(tqdm.get_lock(),)) as p:
-        #    data = p.map(partial(progresser, progress=True, write_safe=True, blocking=False), L)
+        process_map(process_video, video_frames.items(), chunksize=1, max_workers=n_procs)
 
     else:
-        for i in tqdm(range(len(labels))):
-
-            try:
-
-                ann = labels[i]
-                data = process_batch(ann)
-
-                with open(os.path.join(output_dir, 'metadata_%06d.csv' % i), 'w', newline='\n') as csvfile:
-                    writer = csv.writer(csvfile, delimiter=',')
-
-                    headers = ["image","image_target","text"]
-                    writer.writerow(headers)
-                    writer.writerows(data)
-
-            except:
-                pass
+        for vid_name_frames in tqdm(video_frames.items()):
+            process_video(vid_name_frames)
